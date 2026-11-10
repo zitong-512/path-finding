@@ -1,0 +1,45 @@
+:root {
+  color-scheme: dark;
+  font: 15px system-ui, sans-serif;
+  background: #151a24;
+  color: #e7edf7;
+}
+
+body { margin: 0; padding: 24px; }
+main { max-width: 900px; margin: auto; }
+h1 { font-size: 1.25rem; margin: 0 0 5px; }
+p { margin: 0 0 20px; color: #aeb9cc; }
+
+#grid {
+  --cell-size: clamp(16px, 4vw, 32px);
+  display: grid;
+  gap: 3px;
+  width: max-content;
+  max-width: 100%;
+  margin: 20px 0;
+}
+
+.cell {
+  width: var(--cell-size);
+  height: var(--cell-size);
+  border-radius: 5px;
+  background: #293347;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  transition: background .15s;
+}
+
+.wall { background: #0b1019; }
+.visited { background: #36759e; }
+.current { background: #90d0ec; color: #102032; }
+.path { background: #efb84c; color: #1c2230; }
+.start { outline: 2px solid #62dda6; outline-offset: -2px; }
+.goal { outline: 2px solid #f47d92; outline-offset: -2px; }
+
+.controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+button { background: #34445e; color: inherit; border: 0; border-radius: 5px; padding: 7px 12px; cursor: pointer; }
+button:disabled { opacity: .5; cursor: default; }
+input[type=range] { width: min(360px, 60vw); }
+#status { color: #aeb9cc; }

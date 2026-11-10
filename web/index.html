@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Grid pathfinding</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <main>
+    <h1 id="algorithm">Grid pathfinding</h1>
+    <p>Four-direction movement · each step costs one · found path in gold</p>
+    <div id="grid" aria-label="Pathfinding grid"></div>
+    <div class="controls">
+      <button id="play" disabled>Pause</button>
+      <button id="restart" disabled>Restart</button>
+      <input id="step" type="range" min="0" value="0" disabled aria-label="Animation step">
+      <span id="status" role="status">Run the C++ app to generate web/run.json.</span>
+    </div>
+  </main>
+</body>
+</html>

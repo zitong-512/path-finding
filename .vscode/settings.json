@@ -1,0 +1,10 @@
+{
+  "emeraldwalk.runonsave": {
+    "commands": [
+      {
+        "match": "(main|Grid|GridNode|LinkedNode|Queue|Stack|Algorithm|BreadthFirstSearch|DepthFirstSearch|JsonWriter)\\.(cpp|hpp)$",
+        "cmd": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"${workspaceFolder}/build-and-run.ps1\""
+      }
+    ]
+  }
+}
