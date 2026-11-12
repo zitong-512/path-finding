@@ -2,12 +2,16 @@
 #include "../Algorithms/DepthFirstSearch.hpp"
 #include "../Algorithms/Dijkstra.hpp"
 #include "../Algorithms/Greedy.hpp"
+#include "../Algorithms/AStar.hpp"
+#include "../Algorithms/Algo1.hpp"
+#include "../Algorithms/TraceRunner.hpp"
 #include "../DataStructures/PriorityQueue.hpp"
 #include "../DataStructures/Queue.hpp"
 #include "../DataStructures/Stack.hpp"
 
 #include <cassert>
 #include <cstdlib>
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -95,6 +99,12 @@ void testContainers() {
     assert(movedPriorityQueue.push(first, 2));
     movedPriorityQueue.clear();
     assert(movedPriorityQueue.isEmpty() && first->link == nullptr);
+    assert(movedPriorityQueue.push(first, 5));
+    assert(movedPriorityQueue.push(second, 6));
+    assert(movedPriorityQueue.push(third, 0));
+    assert(movedPriorityQueue.pop() == std::make_pair(third, 0));
+    assert(movedPriorityQueue.push(third, 7));
+    movedPriorityQueue.clear();
 
     Stack<int> stack;
     assert(stack.isEmpty());
@@ -244,12 +254,48 @@ void testGreedy() {
     assert(grid.getStart()->settled);
     assert(grid.getGoal()->settled);
     assertDiscoveryTimes(grid);
+    assert(grid.getStart()->heuristic == 4);
+    assert(grid.getGoal()->heuristic == 0);
     const auto route = path(grid);
     assert(route.front() == grid.getStartIndex());
     assert(route.back() == grid.getGoalIndex());
 
     assert(search.run(grid) == grid.getStart());
     assert(path(grid) == route);
+
+    Grid<T> blocked({"S#G"});
+    assert(search.run(blocked) == nullptr);
+    assert(blocked.getPathLength() == -1);
+    assert(blocked.getStart()->settled);
+    assert(!blocked.getGoal()->discovered);
+}
+
+template <typename T>
+void testAStar() {
+    const std::vector<std::string> rows = {
+        "S...#..G", "###.#.##", "....#...", "....#...", "........"
+    };
+    Grid<T> grid(rows);
+    Grid<T> bfsGrid(rows);
+    BreadthFirstSearch<T> bfs;
+    AStar<T> search;
+
+    assert(bfs.run(bfsGrid) == bfsGrid.getStart());
+    assert(search.run(grid) == grid.getStart());
+    assert(grid.getPathLength() == bfsGrid.getPathLength());
+    assert(grid.getGoal()->distance == grid.getPathLength());
+    assert(grid.getStart()->heuristic == 7);
+    assert(grid.getGoal()->heuristic == 0);
+    assert(grid.getGoal()->settled);
+    assertDiscoveryTimes(grid);
+
+    const auto route = path(grid);
+    assert(search.run(grid) == grid.getStart());
+    assert(path(grid) == route);
+
+    grid.clearSearch();
+    assert(grid.getStart()->heuristic == 0);
+    assert(grid.getStart()->distance == std::numeric_limits<int>::max());
 
     Grid<T> blocked({"S#G"});
     assert(search.run(blocked) == nullptr);
@@ -276,6 +322,37 @@ void testNodeValues() {
     assert(labels.getPathLength() == 1);
     assert(labels.getNode(labels.getStartIndex()).value == "start");
 }
+
+void testAlgo1WithoutSettled() {
+    Grid<int> cyclic({
+        "S.............", ".####.#####...", "....#.....#...",
+        "###.#.###.#.#.", "....#...#...#.", ".######.#####.",
+        ".............G"
+    });
+    Algo1<int> search;
+    assert(runWithExpansionTrace(search, cyclic,
+                                static_cast<std::size_t>(cyclic.getNodeCount()) * 4) == nullptr);
+    assert(cyclic.wasGoalExpanded());
+    assert(!cyclic.isTruncated());
+    assert(cyclic.getPathLength() == -1);
+
+    Grid<int> blocked({"S..#G", "....#"});
+    assert(runWithExpansionTrace(search, blocked,
+                                static_cast<std::size_t>(blocked.getNodeCount()) * 4) == nullptr);
+    assert(blocked.isTruncated());
+    assert(!blocked.wasGoalExpanded());
+    assert(blocked.getPathLength() == -1);
+    const auto& expansions = blocked.getExpansionOrder();
+    assert(expansions.size() == static_cast<std::size_t>(blocked.getNodeCount() * 4));
+    std::vector<bool> seen(blocked.getNodeCount(), false);
+    bool revisited = false;
+    for (int index : expansions) {
+        revisited |= seen[index];
+        seen[index] = true;
+        assert(!blocked.getNode(index).settled);
+    }
+    assert(revisited);
+}
 }
 
 int main() {
@@ -287,6 +364,9 @@ int main() {
     testDijkstra<std::string>();
     testGreedy<int>();
     testGreedy<std::string>();
+    testAStar<int>();
+    testAStar<std::string>();
+    testAlgo1WithoutSettled();
     testSearch<BreadthFirstSearch, int>();
     testSearch<DepthFirstSearch, int>();
     testSearch<BreadthFirstSearch, std::string>();

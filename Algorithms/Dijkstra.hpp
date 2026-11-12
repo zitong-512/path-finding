@@ -12,30 +12,24 @@ public:
         grid.clearSearch();
 
         PriorityQueue<T> frontier;
-        int discoveryCount = 1;
-
-        Node<T>* start = frontier.getStart();
-        start->discover(discoveryCount++);
-        frontier.push(start, 0)
+        int discoveryCount = 0;
+        Node<T>* start = grid.getStart();
+        start->discover(++discoveryCount);
+        frontier.push(start, 0);
 
         while (!frontier.isEmpty()) {
-            // The list is unordered; pop scans it for the smallest distance.
-            // pop from the frontier
+
             const auto [current, cost] = frontier.pop();
             current->settled = true;
+            if (current == grid.getGoal()) return linkPath(grid, grid.getGoal());
 
-            if (current == grid.getGoal()) return linkPath(grid, grid.getGoal);
+            for (Node<T>* neighbor : current->getNeighbors()) {
+                if (neighbor == nullptr) continue; // If we don't have any neighbors.
+                if (neighbor->settled) continue; // If we already found the best path to this neighbor.
 
-            // for (type, thing: list)
-            // also each node has a get neighbors
-
-            for (Node<T>* neighbor: current->getNeighbors) {
-                if (neighbor == nullptr) continue;
-                if (neighbor->settled) continue;
-
-                // define nextCost
                 int nextCost = cost + 1;
-                // push into frontier and update prev if necessary
+
+                // Push into frontier and update `prev` if necessary.
                 if (frontier.push(neighbor, nextCost)) neighbor->prev = current;
                 if (!neighbor->discovered) neighbor->discover(++discoveryCount);
             }
@@ -45,9 +39,9 @@ public:
 
 private:
     static Node<T>* linkPath(Grid<T>& grid, Node<T>* goal) {
-    for (Node<T>* current = goal; current->prev != nullptr; current = current->prev) {
-                current->prev->next = current;
-            }
+        for (Node<T>* current = goal; current->prev != nullptr; current = current->prev) {
+            current->prev->next = current;
+        }
         return grid.getStart();
     }
 };

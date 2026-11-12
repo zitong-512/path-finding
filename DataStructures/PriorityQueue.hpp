@@ -3,6 +3,7 @@
 #include "Node.hpp"
 
 #include <cstddef>
+#include <functional>
 #include <stdexcept>
 #include <utility>
 
@@ -25,22 +26,29 @@ public:
     bool isEmpty() const noexcept { return head_ == nullptr; }
     std::size_t getSize() const noexcept { return size_; }
 
+    // Optional observer used by the animation runner; searches need not know about it.
+    static void setPopObserver(std::function<void(Node<T>*)> observer) {
+        popObserver_ = std::move(observer);
+    }
+    static void clearPopObserver() { popObserver_ = {}; }
+
     // Insert the node or lower its priority while it waits in this queue.
     bool push(Node<T>* node, int priority) {
         // Search for the node in the queue and lower its priority if needed.
-        for (Node<T>* current = head_; current != nullptr; current = current->link){
-            if(node != current)continue;
-            if(current->priority >= priority) return false;
+        for (Node<T>* current = head_; current != nullptr; current = current->link) {
+            if (node != current) continue;
+            if (priority >= current->priority) return false;
             current->priority = priority;
             return true;
-        
         }
-        // The node is not already in the queue; add it to the front.
+
+        // The node is not already in the queue; add it to the back.
+        node->priority = priority;
         node->link = nullptr;
-        if (head_ == nullptr){head_ = node;}
+        if (tail_ == nullptr) head_ = node;
         else tail_->link = node;
         tail_ = node;
-        size++;
+        ++size_;
         return true;
     }
 
@@ -55,18 +63,22 @@ public:
         Node<T>* previous = nullptr;
         Node<T>* bestPrevious = nullptr;
         Node<T>* best = head_;
-        for (Node<T>* current = head_; current != nullptr; current = current->link){
-            if (current->priority < best->priority){
+
+        for (Node<T>* current = head_; current != nullptr; current = current->link) {
+            if (current->priority < best->priority) {
                 best = current;
-                bestPrevious = previous
+                bestPrevious = previous;
             }
             previous = current;
         }
-            if (head_->link == nullptr){tail = nullptr}
-            previous->link = best->link
-            best->link = nullptr
-            size--;
-            return best;
+
+        if (bestPrevious == nullptr) head_ = best->link;
+        else bestPrevious->link = best->link;
+        if (best == tail_) tail_ = bestPrevious;
+        best->link = nullptr;
+        --size_;
+        if (popObserver_) popObserver_(best);
+        return {best, best->priority};
     }
 
     void clear() noexcept {
@@ -75,6 +87,7 @@ public:
             head_ = node->link;
             node->link = nullptr;
         }
+        tail_ = nullptr;
         size_ = 0;
     }
 
@@ -88,8 +101,11 @@ private:
     }
     void swap(PriorityQueue& other) noexcept {
         std::swap(head_, other.head_);
+        std::swap(tail_, other.tail_);
         std::swap(size_, other.size_);
     }
     Node<T>* head_ = nullptr;
+    Node<T>* tail_ = nullptr;
     std::size_t size_ = 0;
+    inline static thread_local std::function<void(Node<T>*)> popObserver_;
 };

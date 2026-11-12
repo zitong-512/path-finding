@@ -10,6 +10,9 @@ main { max-width: 900px; margin: auto; }
 h1 { font-size: 1.25rem; margin: 0 0 5px; }
 p { margin: 0 0 20px; color: #aeb9cc; }
 
+.algorithm-picker { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+select { background: #34445e; color: inherit; border: 1px solid #526581; border-radius: 5px; padding: 7px 12px; font: inherit; }
+
 #grid {
   --cell-size: clamp(16px, 4vw, 32px);
   display: grid;

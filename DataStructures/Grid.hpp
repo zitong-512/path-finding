@@ -2,6 +2,7 @@
 
 #include "Node.hpp"
 
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -75,13 +76,28 @@ public:
     Node<T>& getNode(int index) { return nodes_[index]; }
     const Node<T>& getNode(int index) const { return nodes_[index]; }
     const std::vector<std::string>& getRows() const { return rows_; }
+    const std::vector<int>& getExpansionOrder() const { return expansionOrder_; }
+    bool isTruncated() const { return truncated_; }
+    bool wasGoalExpanded() const { return goalExpanded_; }
+
+    void recordExpansion(const Node<T>* node) {
+        expansionOrder_.push_back(getIndex(node->getX(), node->getY()));
+        if (node == goal_) goalExpanded_ = true;
+    }
+
+    void markTruncated() { truncated_ = true; }
 
     void clearSearch() {
+        expansionOrder_.clear();
+        truncated_ = false;
+        goalExpanded_ = false;
         for (Node<T>& current : nodes_) {
             current.prev = nullptr;
             current.next = nullptr;
             current.link = nullptr;
             current.priority = 0;
+            current.distance = std::numeric_limits<int>::max();
+            current.heuristic = 0;
             current.discovered = false;
             current.settled = false;
             current.discoveredTime = 0;
@@ -104,6 +120,9 @@ private:
     int width_;
     int height_;
     std::vector<Node<T>> nodes_;
+    std::vector<int> expansionOrder_;
+    bool truncated_ = false;
+    bool goalExpanded_ = false;
     Node<T>* start_ = nullptr;
     Node<T>* goal_ = nullptr;
 };

@@ -13,49 +13,45 @@ public:
     Node<T>* run(Grid<T>& grid) const override {
         grid.clearSearch();
 
-        // Each waiting node is prioritized by its distance to the goal.
-
-        // Define the frontier 
-        // Define Discoverycount
-        // Define goal
-        // Define start
-        // Set the heuristic to start. Each node has a heuristic attribute and we have here a heuristic function.
-        // Discover start
-        // Push start
-
+        // Each waiting node is prioritized by its distance to the goal
         PriorityQueue<T> frontier;
         int discoveryCount = 0;
         Node<T>* goal = grid.getGoal();
         Node<T>* start = grid.getStart();
-        start->discover(++discoveryCount);
-        frontier.push(start, heuristic(start, goal));
+        start->heuristic = heuristic(start, goal);
+        start->discover(++discoveryCount); // Here we discover a node
+        frontier.push(start, start->heuristic);
 
         while (!frontier.isEmpty()) {
             // The list is unordered; pop scans it for the lowest heuristic.
-            Node<T>* current = frontier.pop().first;
-            current->settled = true;
+            const auto [current, heuristicValue] = frontier.pop();
+            current->settled = true; // Here we settle a node
 
             if (current == goal) return linkPath(grid, current);
 
             for (Node<T>* neighbor : current->getNeighbors()) {
                 if (neighbor == nullptr) continue;
                 if (neighbor->settled) continue;
-                if (!frontier.push(neighbor, heuristic(neighbor, goal))) continue;
+
+                // Is this redundant?
+                if (!neighbor->discovered) neighbor->heuristic = heuristic(neighbor, goal);
+                if (!frontier.push(neighbor, neighbor->heuristic)) continue;
+
                 neighbor->prev = current;
-                if (!neighbor->discovered) neighbor->discover(++discoveryCount);
+                if (!neighbor->discovered) neighbor->discover(++discoveryCount); // Here we discover a node
             }
         }
         return nullptr;
     }
 
 private:
+    // Manhattan/Taxicab Distance
     static int heuristic(const Node<T>* node, const Node<T>* goal) {
         return std::abs(node->getX() - goal->getX())
              + std::abs(node->getY() - goal->getY());
     }
 
     static Node<T>* linkPath(Grid<T>& grid, Node<T>* goal) {
-        for ()
         for (Node<T>* current = goal; current->prev != nullptr; current = current->prev) {
             current->prev->next = current;
         }

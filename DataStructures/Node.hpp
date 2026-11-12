@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <limits>
 #include <utility>
 
 template <typename T>
@@ -28,12 +29,15 @@ public:
     Node<T>* next = nullptr;
     // The queue, stack, or priority queue chains waiting nodes through link.
     Node<T>* link = nullptr;
-    // Dijkstra uses distance here; Greedy uses the heuristic.
+    // Frontier ordering: distance for Dijkstra, heuristic for Greedy, f for A*.
     int priority = 0;
+    // A*'s best known path cost and estimated remaining cost.
+    int distance = std::numeric_limits<int>::max();
+    int heuristic = 0;
 
     // Search state, reset by Grid::clearSearch before each run.
     bool discovered = false;
-    // Set when Dijkstra or Greedy removes this node from the frontier.
+    // Set when a priority search removes this node from the frontier.
     bool settled = false;
     // Zero until discovered; otherwise the 1-based discovery order.
     int discoveredTime = 0;

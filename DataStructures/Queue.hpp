@@ -29,23 +29,20 @@ public:
 
     void push(Node<T>* node) {
         node->link = nullptr;
-        if (head_ == nullptr){head_ = node;}
+        if (tail_ == nullptr) head_ = node; // If queue is empty
         else tail_->link = node;
         tail_ = node;
-        size++;
+        ++size_;
     }
 
     Node<T>* pop() {
         if (isEmpty()) throw std::out_of_range("Queue is empty");
-        if (head_->link == nullptr){
-            tail_ = nullptr;
-        }
         Node<T>* node = head_;
-        head_ = head_->link;
+        head_ = node->link;
         node->link = nullptr;
-        size_--;
+        if (head_ == nullptr) tail_ = nullptr;
+        --size_;
         return node;
-
     }
 
     void clear() noexcept {

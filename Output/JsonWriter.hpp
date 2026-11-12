@@ -7,6 +7,8 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 namespace json_detail {
 inline void writeString(std::ostream& out, std::string_view value) {
@@ -27,6 +29,23 @@ inline void writeString(std::ostream& out, std::string_view value) {
 
 class JsonWriter {
 public:
+    static void writeManifest(const std::string& filename,
+                              const std::vector<std::pair<std::string, std::string>>& algorithms) {
+        std::ofstream file(filename, std::ios::binary);
+        if (!file) throw std::runtime_error("Could not write " + filename);
+        file << "{\n  \"algorithms\": [\n";
+        for (std::size_t i = 0; i < algorithms.size(); ++i) {
+            if (i != 0) file << ",\n";
+            file << "    {\"id\": ";
+            json_detail::writeString(file, algorithms[i].first);
+            file << ", \"name\": ";
+            json_detail::writeString(file, algorithms[i].second);
+            file << '}';
+        }
+        file << "\n  ]\n}\n";
+        if (!file) throw std::runtime_error("Could not finish writing " + filename);
+    }
+
     template <typename T>
     static void write(const std::string& filename, const Grid<T>& grid,
                       const std::string& algorithmName) {
@@ -43,7 +62,15 @@ public:
             if (i != 0) json << ", ";
             json << grid.getNode(i).discoveredTime;
         }
-        json << "],\n  \"path\": [";
+        json << "],\n  \"expansionOrder\": [";
+        const auto& expansions = grid.getExpansionOrder();
+        for (std::size_t i = 0; i < expansions.size(); ++i) {
+            if (i != 0) json << ", ";
+            json << expansions[i];
+        }
+        json << "],\n  \"truncated\": " << (grid.isTruncated() ? "true" : "false");
+        json << ",\n  \"goalExpanded\": " << (grid.wasGoalExpanded() ? "true" : "false");
+        json << ",\n  \"path\": [";
         const int length = grid.getPathLength();
         if (length >= 0) {
             const Node<T>* current = grid.getStart();

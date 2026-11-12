@@ -1,2 +1,4 @@
 .build/
 web/run.json
+web/run-*.json
+web/algorithms.json

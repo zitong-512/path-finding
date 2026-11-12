@@ -14,7 +14,7 @@
       ],
       "problemMatcher": ["$gcc"],
       "group": { "kind": "build", "isDefault": true },
-      "presentation": { "reveal": "silent", "panel": "shared", "clear": true }
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true }
     }
   ]
 }
