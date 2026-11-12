@@ -7,6 +7,8 @@ from pathlib import Path
 import subprocess
 import webbrowser
 
+from build import build
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -15,12 +17,10 @@ def main() -> None:
     args = parser.parse_args()
 
     project = Path(__file__).resolve().parent
-    build_script = project / "build-and-run.ps1"
-    subprocess.run(
-        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(build_script)],
-        cwd=project,
-        check=True,
-    )
+    try:
+        build(project)
+    except (RuntimeError, OSError, subprocess.CalledProcessError) as error:
+        parser.exit(1, f"Build failed: {error}\n")
 
     handler = partial(SimpleHTTPRequestHandler, directory=str(project / "web"))
     with ThreadingHTTPServer(("127.0.0.1", args.port), handler) as server:

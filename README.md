@@ -64,12 +64,17 @@ to switch the application's node value type.
 
 ## Run in a browser
 
-From the project folder, run `python serve.py`.
+You need Python 3.8 or newer and a C++17 compiler (`g++`, `clang++`, or MSVC `cl`)
+on `PATH`. On macOS, install Apple's command line developer tools with
+`xcode-select --install` if you do not already have a compiler.
+
+From the project folder, run `python3 serve.py` on macOS/Linux or
+`python serve.py` on Windows. PowerShell is not required.
 This builds all discovered algorithms, starts a local web server on port 8000,
 and opens the animation in your browser. Keep the terminal open while using it;
 press **Ctrl+C** to stop. If port 8000 is occupied, pass `--port 8001`.
-After changing C++ code while the server is running, run `build-and-run.ps1`
-again in another terminal to update the animations.
+After changing C++ code while the server is running, run `python3 build.py`
+(Windows: `python build.py`) in another terminal to update the animations.
 
 ## Use in VS Code on Windows
 
