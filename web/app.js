@@ -5,6 +5,9 @@ const slider = document.querySelector('#step');
 const status = document.querySelector('#status');
 const play = document.querySelector('#play');
 const restart = document.querySelector('#restart');
+const runMap = document.querySelector('#run-map');
+const discardEdits = document.querySelector('#discard-edits');
+const editorStatus = document.querySelector('#editor-status');
 
 let run = null;
 let cells = [];
@@ -15,29 +18,117 @@ let lastJson = null;
 let loading = false;
 let lastManifest = null;
 let manifestLoading = false;
+let draftRows = [];
+let dirty = false;
+let submitting = false;
+let mapRevision = 0;
+
+function renderCells(rows) {
+  cells = [];
+  grid.replaceChildren();
+  grid.style.gridTemplateColumns = `repeat(${rows[0].length}, var(--cell-size))`;
+  rows.forEach((row, y) => {
+    [...row].forEach((symbol, x) => {
+      const cell = document.createElement('button');
+      cell.type = 'button';
+      cell.className = 'cell';
+      cell.dataset.symbol = symbol;
+      cell.dataset.index = cells.length;
+      cell.setAttribute('aria-label', `Row ${y + 1}, column ${x + 1}: ${
+        symbol === '#' ? 'wall' : symbol === 'S' ? 'start' : symbol === 'G' ? 'goal' : 'open'}`);
+      if (symbol === '#') cell.classList.add('wall');
+      if (symbol === 'S') cell.classList.add('start');
+      if (symbol === 'G') cell.classList.add('goal');
+      if (symbol === 'S' || symbol === 'G') cell.textContent = symbol;
+      cell.disabled = submitting || symbol === 'S' || symbol === 'G';
+      grid.appendChild(cell);
+      cells.push(cell);
+    });
+  });
+}
+
+grid.onclick = event => {
+  const cell = event.target.closest('.cell');
+  if (!cell || submitting || !run || cell.disabled) return;
+  const index = Number(cell.dataset.index);
+  const width = draftRows[0].length;
+  const y = Math.floor(index / width);
+  const x = index % width;
+  const row = draftRows[y];
+  draftRows[y] = row.slice(0, x) + (row[x] === '#' ? '.' : '#') + row.slice(x + 1);
+  dirty = true;
+  ++mapRevision;
+  running = false;
+  slider.disabled = play.disabled = restart.disabled = true;
+  algorithmSelect.disabled = true;
+  runMap.disabled = discardEdits.disabled = false;
+  renderCells(draftRows);
+  cells[index].focus();
+  editorStatus.textContent = 'Unsaved map edits. Run algorithms to update the results.';
+  status.textContent = 'Animation paused while editing.';
+  play.textContent = 'Play';
+};
+
+discardEdits.onclick = () => {
+  if (!run || submitting) return;
+  dirty = false;
+  showRun(run);
+};
+
+runMap.onclick = async () => {
+  if (!run || submitting) return;
+  submitting = true;
+  ++mapRevision;
+  running = false;
+  algorithmSelect.disabled = true;
+  slider.disabled = play.disabled = restart.disabled = true;
+  runMap.disabled = discardEdits.disabled = true;
+  cells.forEach(cell => { cell.disabled = true; });
+  editorStatus.textContent = 'Running algorithms...';
+  try {
+    const response = await fetch('/api/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows: draftRows }),
+    });
+    if (response.status === 404 || response.status === 501 || response.status === 405) {
+      throw new Error('Start python serve.py (macOS/Linux: python3 serve.py) to run edited maps.');
+    }
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+    const data = result.runs[algorithmSelect.value];
+    if (!data) throw new Error('The selected algorithm did not return a result.');
+    dirty = false;
+    submitting = false;
+    lastJson = null;
+    showRun(data);
+    editorStatus.textContent = 'Results updated. Click a cell to edit again.';
+  } catch (error) {
+    editorStatus.textContent = error.message;
+    status.textContent = 'Could not update results. Your map edits are kept.';
+  } finally {
+    submitting = false;
+    runMap.disabled = false;
+    discardEdits.disabled = !dirty;
+    algorithmSelect.disabled = dirty;
+    cells.forEach(cell => {
+      cell.disabled = cell.dataset.symbol === 'S' || cell.dataset.symbol === 'G';
+    });
+    if (!dirty) slider.disabled = play.disabled = restart.disabled = false;
+  }
+};
 
 function showRun(data) {
   run = data;
   totalSteps = data.expansionOrder.length ||
     data.discoveredTimes.reduce((max, time) => Math.max(max, time), 0);
-  cells = [];
-  grid.replaceChildren();
-  grid.style.gridTemplateColumns = `repeat(${data.rows[0].length}, var(--cell-size))`;
+  draftRows = data.rows.slice();
+  renderCells(draftRows);
   algorithm.textContent = data.algorithm;
-
-  for (const row of data.rows) {
-    for (const symbol of row) {
-      const cell = document.createElement('div');
-      cell.className = 'cell';
-      cell.dataset.symbol = symbol;
-      if (symbol === '#') cell.classList.add('wall');
-      if (symbol === 'S') cell.classList.add('start');
-      if (symbol === 'G') cell.classList.add('goal');
-      if (symbol === 'S' || symbol === 'G') cell.textContent = symbol;
-      grid.appendChild(cell);
-      cells.push(cell);
-    }
-  }
+  runMap.disabled = false;
+  discardEdits.disabled = true;
+  algorithmSelect.disabled = false;
+  editorStatus.textContent = 'Click a cell to toggle a wall. S and G stay fixed.';
 
   slider.max = totalSteps;
   slider.disabled = false;
@@ -49,7 +140,7 @@ function showRun(data) {
 }
 
 function draw() {
-  if (!run) return;
+  if (!run || dirty || submitting) return;
   if (run.expansionOrder.length) {
     const counts = new Array(cells.length).fill(0);
     for (let i = 0; i < step; ++i) counts[run.expansionOrder[i]]++;
@@ -108,6 +199,7 @@ function clearRun() {
   slider.disabled = true;
   play.disabled = true;
   restart.disabled = true;
+  runMap.disabled = discardEdits.disabled = true;
   const selectedOption = algorithmSelect.selectedOptions[0];
   algorithm.textContent = selectedOption ? selectedOption.textContent : 'Grid pathfinding';
   status.textContent = 'Loading animation...';
@@ -125,14 +217,15 @@ setInterval(() => {
 }, 90);
 
 async function refreshRun() {
-  if (loading || !algorithmSelect.value) return;
+  if (loading || dirty || submitting || !algorithmSelect.value) return;
   loading = true;
   const selected = algorithmSelect.value;
+  const revision = mapRevision;
   try {
     const response = await fetch(`run-${selected}.json?reload=${Date.now()}`, { cache: 'no-store' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const source = await response.text();
-    if (selected !== algorithmSelect.value) return;
+    if (dirty || submitting || revision !== mapRevision || selected !== algorithmSelect.value) return;
     if (source === lastJson) return;
     const data = JSON.parse(source);
     if (!Array.isArray(data.rows) || !data.rows.length ||
@@ -144,7 +237,7 @@ async function refreshRun() {
           index < 0 || index >= data.discoveredTimes.length)) {
       throw new Error('Invalid run.json');
     }
-    showRun(data);
+    if (JSON.stringify(data) !== JSON.stringify(run)) showRun(data);
     lastJson = source;
   } catch (error) {
     // A build may still be writing the file. The next poll will retry.
@@ -158,12 +251,13 @@ async function refreshRun() {
 }
 
 async function refreshManifest() {
-  if (manifestLoading) return;
+  if (manifestLoading || dirty || submitting) return;
   manifestLoading = true;
   try {
     const response = await fetch(`algorithms.json?reload=${Date.now()}`, { cache: 'no-store' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const source = await response.text();
+    if (dirty || submitting) return;
     if (source === lastManifest) return;
     const data = JSON.parse(source);
     if (!Array.isArray(data.algorithms) || !data.algorithms.length ||

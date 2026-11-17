@@ -76,6 +76,16 @@ press **Ctrl+C** to stop. If port 8000 is occupied, pass `--port 8001`.
 After changing C++ code while the server is running, run `python3 build.py`
 (Windows: `python build.py`) in another terminal to update the animations.
 
+Click an open cell to turn it into a wall, or click a wall to open it. `S` and
+`G` stay fixed. Editing pauses the animation; press **Run algorithms** to
+recalculate all results for the edited map, or **Discard edits** to return to
+the last run. The server reuses the compiled executable, so map edits do not
+require recompilation. Browser edits update the generated results, not the
+default map in `main.cpp`; restarting the server restores that default.
+Interactive reruns require `serve.py`; VS Code Live Preview supports viewing
+the generated animation but cannot run an edited map. Failed runs keep your
+edits so you can correct the map and retry.
+
 ## Use in VS Code on Windows
 
 1. Have a C++17 compiler (`g++`, `clang++`, or MSVC `cl`) available on `PATH`.

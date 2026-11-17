@@ -32,7 +32,15 @@ select { background: #34445e; color: inherit; border: 1px solid #526581; border-
   font-size: 12px;
   font-weight: 700;
   transition: background .15s;
+  padding: 0;
+  color: inherit;
 }
+
+.cell:focus-visible { outline: 2px solid white; outline-offset: 1px; }
+.cell:not(:disabled):hover { box-shadow: inset 0 0 0 2px #aeb9cc; }
+.cell:disabled { opacity: 1; }
+.editor-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+#editor-status { color: #aeb9cc; font-size: .9rem; }
 
 .wall { background: #0b1019; }
 .visited { background: #36759e; }
