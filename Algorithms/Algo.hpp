@@ -4,9 +4,9 @@
 #include "../DataStructures/PriorityQueue.hpp"
 
 template <typename T>
-class Algo1 final : public Algorithm<T> {
+class Algo final : public Algorithm<T> {
 public:
-    const char* getName() const override { return "Algo1"; }
+    const char* getName() const override { return "Algo"; }
 
     Node<T>* run(Grid<T>& grid) const override {
         grid.clearSearch();
@@ -15,19 +15,25 @@ public:
         int discoveryCount = 0;
         Node<T>* goal = grid.getGoal();
         Node<T>* start = grid.getStart();
+        start->discover(++discoveryCount);
         frontier.push(start, 0);
 
         while(!frontier.isEmpty()){
             Node<T>* current = frontier.pop().first;
 
-            for(Node<T>* neighbor : frontierNode->getNeighbors()){
+            for(Node<T>* neighbor : current->getNeighbors()){
+                if(neighbor == nullptr) continue;
                 if(neighbor == goal)  return linkPath(grid, goal);
+
+                bool settled = neighbor->settled;
+                if (settled) continue;
+                frontier.push(neighbor, 0);
+                neighbor->prev = current;
+                neighbor->discover(++discoveryCount);
             }
-            bool settled = neighbor->settled;
-            if (settled) continue;
-            frontier.push(neighbor, 0);
         }
-        
+
+        return nullptr;
     }
 
 private:
