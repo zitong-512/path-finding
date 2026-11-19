@@ -7,7 +7,7 @@ import shutil
 import subprocess
 
 
-def build(project: Path) -> None:
+def build(project: Path, map_file=None) -> None:
     build_directory = project / ".build"
     build_directory.mkdir(exist_ok=True)
     pattern = re.compile(
@@ -58,7 +58,10 @@ def build(project: Path) -> None:
         command = [compiler, "-std=c++17", "-Wall", "-Wextra", "-pedantic", "-g", source, "-o", str(executable)]
     subprocess.run(command, cwd=build_directory, check=True)
     (project / "web").mkdir(exist_ok=True)
-    subprocess.run([str(executable)], cwd=project, check=True)
+    command = [str(executable)]
+    if map_file is not None:
+        command.append(str(map_file))
+    subprocess.run(command, cwd=project, check=True)
 
 
 if __name__ == "__main__":

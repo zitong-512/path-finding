@@ -8,6 +8,8 @@ const restart = document.querySelector('#restart');
 const runMap = document.querySelector('#run-map');
 const discardEdits = document.querySelector('#discard-edits');
 const editorStatus = document.querySelector('#editor-status');
+const saveStatus = document.querySelector('#save-status');
+const editorHint = 'Click a cell to toggle a wall, or select S or G and click its new location.';
 
 let run = null;
 let cells = [];
@@ -22,6 +24,36 @@ let draftRows = [];
 let dirty = false;
 let submitting = false;
 let mapRevision = 0;
+let selectedEndpoint = null;
+let saveVersion = 0;
+let saveTask = Promise.resolve();
+
+function saveDraft() {
+  const rows = draftRows.slice();
+  const version = ++saveVersion;
+  saveStatus.textContent = 'Saving map...';
+  // Serialize writes so a slower, older request cannot replace a newer edit.
+  saveTask = saveTask.catch(() => {}).then(async () => {
+    if (version !== saveVersion) return;
+    const response = await fetch('/api/map', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows }),
+    });
+    if (!response.ok) throw new Error('Could not save map. Check that serve.py is running.');
+    if (version === saveVersion) saveStatus.textContent = 'Map saved.';
+  });
+  saveTask.catch(error => {
+    if (version === saveVersion) saveStatus.textContent = error.message;
+  });
+  return saveTask;
+}
+
+function setSymbol(index, symbol) {
+  const width = draftRows[0].length;
+  const y = Math.floor(index / width);
+  const x = index % width;
+  draftRows[y] = draftRows[y].slice(0, x) + symbol + draftRows[y].slice(x + 1);
+}
 
 function renderCells(rows) {
   cells = [];
@@ -39,8 +71,10 @@ function renderCells(rows) {
       if (symbol === '#') cell.classList.add('wall');
       if (symbol === 'S') cell.classList.add('start');
       if (symbol === 'G') cell.classList.add('goal');
+      if (symbol === selectedEndpoint) cell.classList.add('selected-endpoint');
+      cell.setAttribute('aria-pressed', String(symbol === selectedEndpoint));
       if (symbol === 'S' || symbol === 'G') cell.textContent = symbol;
-      cell.disabled = submitting || symbol === 'S' || symbol === 'G';
+      cell.disabled = submitting;
       grid.appendChild(cell);
       cells.push(cell);
     });
@@ -51,11 +85,29 @@ grid.onclick = event => {
   const cell = event.target.closest('.cell');
   if (!cell || submitting || !run || cell.disabled) return;
   const index = Number(cell.dataset.index);
-  const width = draftRows[0].length;
-  const y = Math.floor(index / width);
-  const x = index % width;
-  const row = draftRows[y];
-  draftRows[y] = row.slice(0, x) + (row[x] === '#' ? '.' : '#') + row.slice(x + 1);
+  const symbol = cell.dataset.symbol;
+  if (symbol === 'S' || symbol === 'G') {
+    selectedEndpoint = selectedEndpoint === symbol ? null : symbol;
+    running = false;
+    draw();
+    cells.forEach(item => {
+      item.classList.remove('selected-endpoint');
+      const selected = item.dataset.symbol === selectedEndpoint;
+      if (selected) item.classList.add('selected-endpoint');
+      item.setAttribute('aria-pressed', String(selected));
+    });
+    editorStatus.textContent = selectedEndpoint
+      ? `Select a new cell for ${selectedEndpoint}. Click ${selectedEndpoint} again to cancel.` : editorHint;
+    return;
+  }
+  if (selectedEndpoint) {
+    const previous = cells.findIndex(item => item.dataset.symbol === selectedEndpoint);
+    setSymbol(previous, '.');
+    setSymbol(index, selectedEndpoint);
+    selectedEndpoint = null;
+  } else {
+    setSymbol(index, symbol === '#' ? '.' : '#');
+  }
   dirty = true;
   ++mapRevision;
   running = false;
@@ -64,20 +116,25 @@ grid.onclick = event => {
   runMap.disabled = discardEdits.disabled = false;
   renderCells(draftRows);
   cells[index].focus();
-  editorStatus.textContent = 'Unsaved map edits. Run algorithms to update the results.';
+  editorStatus.textContent = 'Map changed. Run algorithms to update the results.';
   status.textContent = 'Animation paused while editing.';
   play.textContent = 'Play';
+  saveDraft();
 };
 
 discardEdits.onclick = () => {
   if (!run || submitting) return;
   dirty = false;
+  selectedEndpoint = null;
+  ++mapRevision;
   showRun(run);
+  saveDraft();
 };
 
 runMap.onclick = async () => {
   if (!run || submitting) return;
   submitting = true;
+  selectedEndpoint = null;
   ++mapRevision;
   running = false;
   algorithmSelect.disabled = true;
@@ -86,6 +143,7 @@ runMap.onclick = async () => {
   cells.forEach(cell => { cell.disabled = true; });
   editorStatus.textContent = 'Running algorithms...';
   try {
+    await saveDraft();
     const response = await fetch('/api/run', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -112,7 +170,7 @@ runMap.onclick = async () => {
     discardEdits.disabled = !dirty;
     algorithmSelect.disabled = dirty;
     cells.forEach(cell => {
-      cell.disabled = cell.dataset.symbol === 'S' || cell.dataset.symbol === 'G';
+      cell.disabled = false;
     });
     if (!dirty) slider.disabled = play.disabled = restart.disabled = false;
   }
@@ -128,7 +186,7 @@ function showRun(data) {
   runMap.disabled = false;
   discardEdits.disabled = true;
   algorithmSelect.disabled = false;
-  editorStatus.textContent = 'Click a cell to toggle a wall. S and G stay fixed.';
+  editorStatus.textContent = editorHint;
 
   slider.max = totalSteps;
   slider.disabled = false;
@@ -191,6 +249,7 @@ play.onclick = () => {
 restart.onclick = () => { step = 0; running = true; draw(); };
 slider.oninput = () => { step = Number(slider.value); running = false; draw(); };
 function clearRun() {
+  selectedEndpoint = null;
   lastJson = null;
   run = null;
   running = false;
@@ -217,7 +276,7 @@ setInterval(() => {
 }, 90);
 
 async function refreshRun() {
-  if (loading || dirty || submitting || !algorithmSelect.value) return;
+  if (loading || dirty || selectedEndpoint || submitting || !algorithmSelect.value) return;
   loading = true;
   const selected = algorithmSelect.value;
   const revision = mapRevision;
@@ -225,7 +284,7 @@ async function refreshRun() {
     const response = await fetch(`run-${selected}.json?reload=${Date.now()}`, { cache: 'no-store' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const source = await response.text();
-    if (dirty || submitting || revision !== mapRevision || selected !== algorithmSelect.value) return;
+    if (dirty || selectedEndpoint || submitting || revision !== mapRevision || selected !== algorithmSelect.value) return;
     if (source === lastJson) return;
     const data = JSON.parse(source);
     if (!Array.isArray(data.rows) || !data.rows.length ||
@@ -251,13 +310,13 @@ async function refreshRun() {
 }
 
 async function refreshManifest() {
-  if (manifestLoading || dirty || submitting) return;
+  if (manifestLoading || dirty || selectedEndpoint || submitting) return;
   manifestLoading = true;
   try {
     const response = await fetch(`algorithms.json?reload=${Date.now()}`, { cache: 'no-store' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const source = await response.text();
-    if (dirty || submitting) return;
+    if (dirty || selectedEndpoint || submitting) return;
     if (source === lastManifest) return;
     const data = JSON.parse(source);
     if (!Array.isArray(data.algorithms) || !data.algorithms.length ||

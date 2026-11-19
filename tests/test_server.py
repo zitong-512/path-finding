@@ -16,7 +16,7 @@ from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from build import build
-from serve import PathfindingHandler, validate_rows
+from serve import PathfindingHandler, SAVED_MAP, prepare_project, validate_rows
 
 
 class MapServerTests(unittest.TestCase):
@@ -51,6 +51,57 @@ class MapServerTests(unittest.TestCase):
             response = error
         with response:
             return response.status, json.load(response)
+
+    def setUp(self):
+        (self.project / SAVED_MAP).unlink(missing_ok=True)
+
+    def test_autosave_keeps_draft_without_running(self):
+        target = self.project / "web" / "run-astar.json"
+        before = target.read_bytes()
+        rows = [".G.", "S#."]
+        code, result = self.post({"rows": rows}, path="/api/map")
+        self.assertEqual(code, 200, result)
+        saved = self.project / SAVED_MAP
+        self.assertEqual(saved.read_text().splitlines(), rows)
+        self.assertEqual(target.read_bytes(), before)
+        self.assertEqual(self.post({"rows": ["SSG"]}, path="/api/map")[0], 400)
+        self.assertEqual(saved.read_text().splitlines(), rows)
+
+    def test_restart_uses_saved_map_and_endpoints(self):
+        source = (self.project / "main.cpp").read_bytes()
+        rows = ["..S", "#G."]
+        self.assertEqual(self.post({"rows": rows}, path="/api/map")[0], 200)
+        # This is the same compile-and-run startup path used by a new serve.py process.
+        prepare_project(self.project)
+        result = json.loads((self.project / "web" / "run-breadthfirstsearch.json").read_text())
+        self.assertEqual(result["rows"], rows)
+        self.assertEqual(result["path"][0], 2)
+        self.assertEqual(result["path"][-1], 4)
+        self.assertEqual((self.project / "main.cpp").read_bytes(), source)
+
+    def test_startup_fallback_and_invalid_saved_file(self):
+        with patch("serve.build") as compile_project:
+            prepare_project(self.project)
+            compile_project.assert_called_once_with(self.project, map_file=None)
+        saved = self.project / SAVED_MAP
+        saved.write_text("SSG\n")
+        with patch("serve.build") as compile_project, self.assertRaisesRegex(ValueError, "Invalid saved-map"):
+            prepare_project(self.project)
+        compile_project.assert_not_called()
+        self.assertEqual(saved.read_text(), "SSG\n")
+
+    def test_save_failure_preserves_previous_map(self):
+        rows = ["S.G"]
+        self.assertEqual(self.post({"rows": rows}, path="/api/map")[0], 200)
+        with patch("serve.Path.replace", side_effect=OSError("disk full")):
+            code, result = self.post({"rows": [".SG"]}, path="/api/map")
+        self.assertEqual(code, 500, result)
+        self.assertEqual((self.project / SAVED_MAP).read_text().splitlines(), rows)
+        self.assertEqual(list(self.project.glob(".saved-map-*")), [])
+
+    def test_static_assets_are_not_cached(self):
+        with urlopen(self.url + "/algorithms.json") as response:
+            self.assertEqual(response.headers["Cache-Control"], "no-store")
 
     def test_validation(self):
         for rows in (None, [], [1], [""], ["SG", "."], ["S?G"], ["S.."],

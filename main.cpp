@@ -15,12 +15,12 @@ int main(int argc, char* argv[]) {
         // Edit these rows, then press Ctrl+Shift+B in VS Code.
         // S = start, G = goal, # = wall, . = open cell.
         std::vector<std::string> rows = {
-            "S..........#.",
+            "S...G......#.",
             ".....#.#####.",
             "...###.....#.",
-            "..#..########",
-            ".######...#.#",
-            "G####.#####..",
+            "..#...#######",
+            ".###..#...#.#",
+            ".####.#####..",
             "....#........",
         };
         if (argc > 2) throw std::invalid_argument("Usage: pathfinding [map-file]");

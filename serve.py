@@ -14,6 +14,34 @@ import webbrowser
 from build import build
 
 
+SAVED_MAP = "saved-map.txt"
+
+
+def save_map(project, rows):
+    """Replace the saved map atomically, leaving the prior file intact on failure."""
+    validate_rows(rows)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", newline="\n",
+                                         dir=project, prefix=".saved-map-", delete=False) as file:
+            temporary = Path(file.name)
+            file.write("\n".join(rows) + "\n")
+        temporary.replace(project / SAVED_MAP)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
+def prepare_project(project):
+    saved = project / SAVED_MAP
+    if saved.exists():
+        try:
+            validate_rows(saved.read_text(encoding="utf-8").splitlines())
+        except ValueError as error:
+            raise ValueError(f"Invalid {SAVED_MAP}: {error}") from error
+    build(project, map_file=saved if saved.exists() else None)
+
+
 def validate_rows(rows):
     if not isinstance(rows, list) or not rows or not all(isinstance(row, str) for row in rows):
         raise ValueError("Map must contain a nonempty list of row strings.")
@@ -62,13 +90,17 @@ class PathfindingHandler(SimpleHTTPRequestHandler):
         body = json.dumps(value).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
+    def end_headers(self):
+        # Reloads must pick up matching HTML, JavaScript, and styles during development.
+        self.send_header("Cache-Control", "no-store")
+        super().end_headers()
+
     def do_POST(self):
-        if self.path != "/api/run":
+        if self.path not in ("/api/run", "/api/map"):
             self.reply_json(404, {"error": "Unknown endpoint."})
             return
         if self.headers.get_content_type() != "application/json":
@@ -84,6 +116,13 @@ class PathfindingHandler(SimpleHTTPRequestHandler):
             rows = validate_rows(payload.get("rows"))
         except (ValueError, UnicodeError) as error:
             self.reply_json(400, {"error": str(error)})
+            return
+        if self.path == "/api/map":
+            try:
+                save_map(self.project, rows)
+                self.reply_json(200, {"rows": rows})
+            except OSError as error:
+                self.reply_json(500, {"error": f"Could not save map: {error}"})
             return
         if not self.run_lock.acquire(blocking=False):
             self.reply_json(409, {"error": "Another map is running. Try again shortly."})
@@ -107,8 +146,8 @@ def main() -> None:
 
     project = Path(__file__).resolve().parent
     try:
-        build(project)
-    except (RuntimeError, OSError, subprocess.CalledProcessError) as error:
+        prepare_project(project)
+    except (RuntimeError, ValueError, OSError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"Build failed: {error}\n")
 
     handler = partial(PathfindingHandler, project=project)

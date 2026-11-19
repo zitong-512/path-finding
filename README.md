@@ -76,12 +76,19 @@ press **Ctrl+C** to stop. If port 8000 is occupied, pass `--port 8001`.
 After changing C++ code while the server is running, run `python3 build.py`
 (Windows: `python build.py`) in another terminal to update the animations.
 
-Click an open cell to turn it into a wall, or click a wall to open it. `S` and
-`G` stay fixed. Editing pauses the animation; press **Run algorithms** to
+Click an open cell to turn it into a wall, or click a wall to open it. Click
+`S` or `G`, then click its new location to move it; placing it on a wall opens
+that cell. Click the selected endpoint again to cancel, or click the other
+endpoint to select that one instead. Editing pauses the animation; press **Run algorithms** to
 recalculate all results for the edited map, or **Discard edits** to return to
 the last run. The server reuses the compiled executable, so map edits do not
 require recompilation. Browser edits update the generated results, not the
-default map in `main.cpp`; restarting the server restores that default.
+default map in `main.cpp`. Each edit is automatically saved to `saved-map.txt`
+in the project folder, including edits made before pressing **Run algorithms**.
+Wait for **Map saved.** before closing the page. The next `serve.py` startup
+uses that saved map, including the start and goal positions. **Discard edits**
+also saves the restored map. Delete `saved-map.txt` to return to the default
+map in `main.cpp` on the next startup. The saved file is excluded from Git.
 Interactive reruns require `serve.py`; VS Code Live Preview supports viewing
 the generated animation but cannot run an edited map. Failed runs keep your
 edits so you can correct the map and retry.

@@ -41,6 +41,8 @@ select { background: #34445e; color: inherit; border: 1px solid #526581; border-
 .cell:disabled { opacity: 1; }
 .editor-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
 #editor-status { color: #aeb9cc; font-size: .9rem; }
+#save-status { color: #aeb9cc; font-size: .9rem; }
+.selected-endpoint { box-shadow: 0 0 0 3px white; }
 
 .wall { background: #0b1019; }
 .visited { background: #36759e; }

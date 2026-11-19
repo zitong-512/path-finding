@@ -39,7 +39,7 @@ function editor() {
       },
       createElement: () => new Element(),
     },
-    fetch: () => new Promise(() => {}),
+    fetch: url => url === '/api/map' ? Promise.resolve({ ok: true }) : new Promise(() => {}),
     setInterval: () => 0,
     console,
   });
@@ -53,10 +53,8 @@ function editor() {
   return { context, evaluate, elements };
 }
 
-test('toggle either way, protect endpoints, and discard without changing saved rows', () => {
+test('toggle either way and discard without changing saved rows', () => {
   const { evaluate, elements } = editor();
-  evaluate('grid.onclick({ target: cells[0] }); grid.onclick({ target: cells[2] });');
-  assert.equal(evaluate('dirty'), false);
   evaluate('grid.onclick({ target: cells[1] });');
   assert.equal(evaluate('draftRows[0]'), 'S#G');
   assert.equal(evaluate('run.rows[0]'), 'S.G');
@@ -73,7 +71,8 @@ test('toggle either way, protect endpoints, and discard without changing saved r
 
 test('a poll started before editing cannot overwrite the draft', async () => {
   const { context, evaluate } = editor();
-  context.fetch = () => new Promise(resolve => { context.finishPoll = resolve; });
+  context.fetch = url => url === '/api/map' ? Promise.resolve({ ok: true })
+    : new Promise(resolve => { context.finishPoll = resolve; });
   const poll = evaluate('refreshRun()');
   evaluate('grid.onclick({ target: cells[1] });');
   context.finishPoll({ ok: true, text: async () => JSON.stringify(context.initialRun) });
@@ -88,6 +87,7 @@ test('successful rerun submits edits and polling identical results preserves pla
   context.updatedRun = { ...context.initialRun, rows: ['S#G'], discoveredTimes: [1, 0, 0], path: [] };
   let request;
   context.fetch = async (url, options) => {
+    if (url === '/api/map') return { ok: true };
     request = { url, options };
     return { ok: true, status: 200, json: async () => ({ runs: { breadthfirstsearch: context.updatedRun } }) };
   };
@@ -107,7 +107,8 @@ test('successful rerun submits edits and polling identical results preserves pla
 test('failed reruns retain editable draft and keep stale animation disabled', async () => {
   const { context, evaluate, elements } = editor();
   evaluate('grid.onclick({ target: cells[1] });');
-  context.fetch = async () => ({ ok: false, status: 504, json: async () => ({ error: 'Algorithm timed out' }) });
+  context.fetch = async url => url === '/api/map' ? { ok: true }
+    : { ok: false, status: 504, json: async () => ({ error: 'Algorithm timed out' }) };
   await evaluate('runMap.onclick()');
   assert.equal(evaluate('draftRows[0]'), 'S#G');
   assert.equal(evaluate('run.rows[0]'), 'S.G');
@@ -121,8 +122,69 @@ test('failed reruns retain editable draft and keep stale animation disabled', as
 test('static preview explains how to enable reruns and retains the draft', async () => {
   const { context, evaluate, elements } = editor();
   evaluate('grid.onclick({ target: cells[1] });');
-  context.fetch = async () => ({ ok: false, status: 501 });
+  context.fetch = async url => url === '/api/map' ? { ok: true } : { ok: false, status: 501 };
   await evaluate('runMap.onclick()');
   assert.match(elements.get('#editor-status').textContent, /python serve.py/);
   assert.equal(evaluate('draftRows[0]'), 'S#G');
+});
+
+test('move both endpoints, open a wall, and retain exactly one start and goal', async () => {
+  const { evaluate } = editor();
+  evaluate('grid.onclick({ target: cells[1] });'); // Make a wall first.
+  evaluate('grid.onclick({ target: cells[0] });');
+  assert.equal(evaluate('selectedEndpoint'), 'S');
+  assert.equal(evaluate('cells[0].classList.contains("selected-endpoint")'), true);
+  evaluate('grid.onclick({ target: cells[1] });');
+  assert.equal(evaluate('draftRows[0]'), '.SG');
+  evaluate('grid.onclick({ target: cells[2] }); grid.onclick({ target: cells[0] });');
+  assert.equal(evaluate('draftRows[0]'), 'GS.');
+  assert.equal(evaluate('run.rows[0]'), 'S.G');
+  await evaluate('saveTask');
+});
+
+test('selecting, cancelling, or switching endpoints does not mutate the map', () => {
+  const { evaluate } = editor();
+  evaluate('grid.onclick({ target: cells[0] }); grid.onclick({ target: cells[0] });');
+  assert.equal(evaluate('selectedEndpoint'), null);
+  evaluate('grid.onclick({ target: cells[0] }); grid.onclick({ target: cells[2] });');
+  assert.equal(evaluate('selectedEndpoint'), 'G');
+  assert.equal(evaluate('draftRows[0]'), 'S.G');
+  assert.equal(evaluate('dirty'), false);
+  evaluate('clearRun()');
+  assert.equal(evaluate('selectedEndpoint'), null);
+});
+
+test('autosave serializes in-flight edits and saves the latest map without a rerun', async () => {
+  const { context, evaluate, elements } = editor();
+  const requests = [];
+  let finishFirst;
+  context.fetch = async (url, options) => {
+    assert.equal(url, '/api/map');
+    requests.push(JSON.parse(options.body).rows);
+    if (requests.length === 1) await new Promise(resolve => { finishFirst = resolve; });
+    return { ok: true };
+  };
+  evaluate('grid.onclick({ target: cells[1] });');
+  await Promise.resolve();
+  await Promise.resolve();
+  evaluate('grid.onclick({ target: cells[0] }); grid.onclick({ target: cells[1] });');
+  finishFirst();
+  await evaluate('saveTask');
+  assert.deepEqual(requests, [['S#G'], ['.SG']]);
+  assert.equal(elements.get('#save-status').textContent, 'Map saved.');
+  evaluate('discardEdits.onclick()');
+  await evaluate('saveTask');
+  assert.deepEqual(requests.at(-1), ['S.G']);
+});
+
+test('failed autosave is visible and preserves edits for a retry', async () => {
+  const { context, evaluate, elements } = editor();
+  context.fetch = async () => ({ ok: false });
+  evaluate('grid.onclick({ target: cells[1] });');
+  await evaluate('saveTask.catch(() => {})');
+  assert.match(elements.get('#save-status').textContent, /Could not save map/);
+  assert.equal(evaluate('draftRows[0]'), 'S#G');
+  context.fetch = async () => ({ ok: true });
+  await evaluate('saveDraft()');
+  assert.equal(elements.get('#save-status').textContent, 'Map saved.');
 });

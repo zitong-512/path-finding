@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Grid pathfinding</title>
-  <link rel="stylesheet" href="style.css">
-  <script src="app.js" defer></script>
+  <link rel="stylesheet" href="style.css?v=2">
+  <script src="app.js?v=2" defer></script>
 </head>
 <body>
   <main>
@@ -18,7 +18,8 @@
     <div class="editor-controls">
       <button id="run-map" disabled>Run algorithms</button>
       <button id="discard-edits" disabled>Discard edits</button>
-      <span id="editor-status" role="status">Click a cell to toggle a wall. S and G stay fixed.</span>
+      <span id="editor-status" role="status">Click a cell to toggle a wall, or select S or G and click its new location.</span>
+      <span id="save-status" role="status"></span>
     </div>
     <div id="grid" aria-label="Pathfinding grid"></div>
     <div class="controls">
