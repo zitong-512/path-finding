@@ -234,8 +234,8 @@ to two such frontiers at once. Use separate storage when needed. Additional
 arrays or standard containers are allowed for independent visited states,
 distances, and predecessor information.
 
-## Exercise 11 Run BFS from the goal 
-HOMEWORK HOMEWORK HOMEWORK
+## Exercise 11 Run BFS from the goal
+HOMEWORK
 
 Implement BFS starting at **`G`**, stopping when it removes **`S`** from its
 queue. The returned path must still run forward from `S` to `G`.

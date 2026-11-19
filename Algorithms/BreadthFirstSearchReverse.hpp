@@ -21,11 +21,21 @@ public:
         Node<T>* start = grid.getGoal();
         start->discover(++discoveryCount);
         frontier.push(start);
+        int cost = start->distanceFromGoal;
 
         while (!frontier.isEmpty()) {
             Node<T>* current = frontier.pop();
             if (current == grid.getStart()) return current;
-            enqueueNeighbors(current, frontier, discoveryCount);
+            
+            for (Node<T>* neighbor : current->getNeighbors()) {
+                if(neighbor == nullptr) continue;
+                if(!neighbor->discovered){
+                    neighbor->discover(++discoveryCount);
+                    neighbor->distanceFromGoal = current->distanceFromGoal + 1;
+                    frontier.push(neighbor);
+                }
+            
+            }
         }
         return nullptr;
     }

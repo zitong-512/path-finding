@@ -41,6 +41,8 @@ public:
         return exploreRecursive(grid, frontier, discoveryCount);
     }
 
+    
+
 private:
     static void enqueueNeighbors(Node<T>* current,
                                  Queue<T>& frontier, int& discoveryCount) {

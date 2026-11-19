@@ -34,6 +34,7 @@ public:
     // A*'s best known path cost and estimated remaining cost.
     int distance = std::numeric_limits<int>::max();
     int heuristic = 0;
+    int distanceFromGoal = 10000;
 
     // Search state, reset by Grid::clearSearch before each run.
     bool discovered = false;
