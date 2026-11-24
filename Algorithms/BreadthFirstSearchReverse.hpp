@@ -10,23 +10,22 @@ public:
     const char* getName() const override { return "Breadth-first search reverse"; }
 
     Node<T>* run(Grid<T>& grid) const override {
-        Node<T>* goal = runIterative(grid);
-        return goal == nullptr ? nullptr : linkPath2(grid, goal);
+        Node<T>* start = runIterative(grid);
+        return start == nullptr ? nullptr : linkPath2(grid, start);
     }
 
     Node<T>* runIterative(Grid<T>& grid) const {
         grid.clearSearch();
         int discoveryCount = 0;
         Queue<T> frontier;
-        Node<T>* start = grid.getGoal();
-        start->discover(++discoveryCount);
-        frontier.push(start);
-        int cost = start->distanceFromGoal;
-
+        Node<T>* goal = grid.getGoal();
+        goal->discover(++discoveryCount);
+        frontier.push(goal);
+        goal->distanceFromGoal = 0;
+            
         while (!frontier.isEmpty()) {
             Node<T>* current = frontier.pop();
             if (current == grid.getStart()) return current;
-            
             for (Node<T>* neighbor : current->getNeighbors()) {
                 if(neighbor == nullptr) continue;
                 if(!neighbor->discovered){
@@ -34,6 +33,7 @@ public:
                     neighbor->distanceFromGoal = current->distanceFromGoal + 1;
                     frontier.push(neighbor);
                 }
+                
             
             }
         }
@@ -82,8 +82,24 @@ private:
         }
         return grid.getStart();
     }
-    static Node<T>* linkPath2(Grid<T>& grid, Node<T>* goal) {
-        return grid.getStart();
+    static Node<T>* linkPath2(Grid<T>& grid, Node<T>* start) {
+        Node<T>* current = start;
+        while (current != grid.getGoal()){
+            Node<T>* priorityNeighbor = current;
+            int priority = 100;
+            for (Node<T>* neighbor : current->getNeighbors()) {
+                if (neighbor == nullptr) continue; 
+                if (!neighbor->discovered) continue;
+                if (neighbor->distanceFromGoal < priority){
+                    priority = neighbor->distanceFromGoal;
+                    priorityNeighbor = neighbor;
+                }
+            }
+            priorityNeighbor->prev = current;
+            current->next = priorityNeighbor;
+            current = priorityNeighbor;
+        }
+        return start;
     }
 
 };
