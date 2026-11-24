@@ -38,6 +38,8 @@ public:
 
     // Search state, reset by Grid::clearSearch before each run.
     bool discovered = false;
+    bool discoveredFromStart = false;
+    bool discoveredFromEnd = false;
     // Set when a priority search removes this node from the frontier.
     bool settled = false;
     // Zero until discovered; otherwise the 1-based discovery order.
